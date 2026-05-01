@@ -50,5 +50,5 @@ agents:
     time_threshold: 3
 
 report:
-  format: "json"
+  format: "markdown"
   output_dir: "./reports"

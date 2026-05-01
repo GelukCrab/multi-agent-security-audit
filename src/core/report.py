@@ -118,18 +118,21 @@ class ReportGenerator:
         lines.append("## 漏洞详情")
         lines.append("")
         for v in report["vulnerabilities"]:
-            lines.append(f"### {v['vuln_type']} — {v['endpoint']}")
-            lines.append(f"- 严重程度: {v['severity']}")
-            lines.append(f"- 参数: {v['parameter']}")
-            lines.append(f"- 描述: {v['description']}")
-            lines.append(f"- PoC: `{v['poc']}`")
+            lines.append(f"### {v.get('vuln_type', 'Unknown')} — {v.get('endpoint', '')}")
+            lines.append(f"- 严重程度: {v.get('severity', '')}")
+            lines.append(f"- 参数: {v.get('parameter', '')}")
+            lines.append(f"- 描述: {v.get('description', '')}")
+            lines.append(f"- PoC: `{v.get('poc', '')}`")
+            if v.get("evidence"):
+                lines.append(f"- 证据: `{v['evidence'][:200]}`")
             lines.append("")
 
-        lines.append("## 端点清单")
-        lines.append("")
-        lines.append("| 路径 | 方法 | 优先级 | 状态 |")
-        lines.append("|------|------|--------|------|")
-        for ep in report["endpoints"]:
-            lines.append(f"| {ep['path']} | {ep['method']} | {ep['priority']} | {ep['status']} |")
+        if "endpoints" in report:
+            lines.append("## 端点清单")
+            lines.append("")
+            lines.append("| 路径 | 方法 | 优先级 | 状态 |")
+            lines.append("|------|------|--------|------|")
+            for ep in report["endpoints"]:
+                lines.append(f"| {ep['path']} | {ep['method']} | {ep['priority']} | {ep['status']} |")
 
         return "\n".join(lines)

@@ -64,7 +64,7 @@ def main() -> None:
     parser.add_argument("--target", "-t", required=True, help="目标URL")
     parser.add_argument("--config", "-c", default="config/default.yaml", help="配置文件路径")
     parser.add_argument("--proxy", "-p", default="", help="代理地址")
-    parser.add_argument("--format", "-f", choices=["json", "markdown"], default="json", help="报告格式")
+    parser.add_argument("--format", "-f", choices=["json", "markdown"], default=None, help="报告格式")
     parser.add_argument("--output", "-o", default="./reports", help="报告输出目录")
     parser.add_argument("--verbose", "-v", action="store_true", help="详细日志")
     parser.add_argument("--no-ai", action="store_true", help="不使用AI模型，纯规则引擎模式")
@@ -76,7 +76,8 @@ def main() -> None:
     logger.info("日志文件: %s", log_file)
 
     config = load_config(args.config, target=args.target, proxy=args.proxy)
-    config["report"]["format"] = args.format
+    if args.format:
+        config["report"]["format"] = args.format
     config["report"]["output_dir"] = args.output
     config["use_ai"] = not args.no_ai
 
