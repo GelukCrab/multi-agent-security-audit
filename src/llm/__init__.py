@@ -143,6 +143,13 @@ class LLMProvider:
                             role, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
 
             result = {"role": "assistant", "content": msg.content or ""}
+
+            # DeepSeek推理模型会返回reasoning_content，必须传回API
+            reasoning = getattr(msg, "reasoning_content", None)
+            if reasoning:
+                result["reasoning_content"] = reasoning
+                logger.debug("[%s] 推理内容: %s...", role, reasoning[:200])
+
             if msg.tool_calls:
                 result["tool_calls"] = [
                     {
