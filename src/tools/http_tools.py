@@ -24,8 +24,9 @@ def create_http_tools(client: HttpClient) -> dict:
     ) -> dict:
         """发送HTTP请求"""
         # 模型可能输出已编码的URL，先解码防止双重编码
-        if "%25" in url or ("%20" in url and " " not in url):
+        if "%2" in url or "%3" in url or "%20" in url:
             url = unquote(url)
+            logger.debug("URL解码后: %s", url[:200])
 
         req_headers = dict(headers or {})
         if content_type:
@@ -35,8 +36,9 @@ def create_http_tools(client: HttpClient) -> dict:
         data = None
         if body:
             # body也可能被编码
-            if "%20" in body or "%27" in body or "%22" in body:
+            if "%2" in body or "%3" in body or "%20" in body:
                 body = unquote(body)
+                logger.debug("Body解码后: %s", body[:200])
             if content_type and "json" in content_type:
                 import json
                 try:
@@ -46,8 +48,8 @@ def create_http_tools(client: HttpClient) -> dict:
             else:
                 data = body
 
-        # 过滤空params
-        if params and not any(v for v in params.values()):
+        # 过滤空params — 空dict会导致httpx覆盖URL中的query string
+        if not params:
             params = None
 
         start = time.time()
