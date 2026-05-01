@@ -30,7 +30,7 @@ def _load_dotenv() -> None:
 
 
 _load_dotenv()
-from src.utils.display import print_banner, print_endpoints_table, print_vulns_table, console
+from src.utils.display import print_banner, print_vulns_table, console
 
 warnings.filterwarnings("ignore", message=".*Unverified HTTPS.*")
 
