@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import logging
+from urllib.parse import unquote
 from src.utils.http_client import HttpClient
 
 logger = logging.getLogger(__name__)
@@ -22,22 +23,32 @@ def create_http_tools(client: HttpClient) -> dict:
         content_type: str | None = None,
     ) -> dict:
         """发送HTTP请求"""
+        # 模型可能输出已编码的URL，先解码防止双重编码
+        if "%25" in url or ("%20" in url and " " not in url):
+            url = unquote(url)
+
         req_headers = dict(headers or {})
         if content_type:
             req_headers["Content-Type"] = content_type
 
         json_data = None
         data = None
-        if body and content_type and "json" in content_type:
-            import json
-            try:
-                json_data = json.loads(body)
-            except json.JSONDecodeError:
+        if body:
+            # body也可能被编码
+            if "%20" in body or "%27" in body or "%22" in body:
+                body = unquote(body)
+            if content_type and "json" in content_type:
+                import json
+                try:
+                    json_data = json.loads(body)
+                except json.JSONDecodeError:
+                    data = body
+            else:
                 data = body
-        elif body and content_type and "urlencoded" in content_type:
-            data = body
-        elif body:
-            data = body
+
+        # 过滤空params
+        if params and not any(v for v in params.values()):
+            params = None
 
         start = time.time()
         try:
