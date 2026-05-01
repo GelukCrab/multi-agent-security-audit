@@ -13,6 +13,23 @@ from datetime import datetime
 import yaml
 
 from src.core.orchestrator import Orchestrator
+
+
+def _load_dotenv() -> None:
+    """加载项目根目录的.env文件"""
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            os.environ.setdefault(key.strip(), val.strip())
+
+
+_load_dotenv()
 from src.utils.display import print_banner, print_endpoints_table, print_vulns_table, console
 
 warnings.filterwarnings("ignore", message=".*Unverified HTTPS.*")

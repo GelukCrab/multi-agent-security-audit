@@ -144,10 +144,9 @@ class LLMProvider:
 
             result = {"role": "assistant", "content": msg.content or ""}
 
-            # DeepSeek推理模型会返回reasoning_content，必须传回API
+            # DeepSeek推理模型返回reasoning_content，仅用于日志，不能传回API
             reasoning = getattr(msg, "reasoning_content", None)
             if reasoning:
-                result["reasoning_content"] = reasoning
                 logger.debug("[%s] 推理内容: %s...", role, reasoning[:200])
 
             if msg.tool_calls:

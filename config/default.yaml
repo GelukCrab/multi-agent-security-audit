@@ -13,7 +13,7 @@ llm:
   base_url: "https://api.deepseek.com"
   # API密钥 (建议通过环境变量设置，不要写在配置文件里)
   api_key: ""
-  # 主攻手模型 (也可通过 LLM_MAIN_MODEL 环境变量设置)
+  # 主攻手模型 (deepseek-v4-pro/deepseek-v4-flash均支持Function Calling)
   main_model: "deepseek-v4-pro"
   max_tokens: 4096
   temperature: 0.7
