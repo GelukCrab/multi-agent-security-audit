@@ -74,7 +74,8 @@ class AdvisorAgent:
             found_vulns="\n".join(f"- {v}" for v in found_vulns) or "无",
         )
 
-        logger.info("===== 顾问Agent介入 =====")
+        logger.info("===== 顾问Agent介入 [%s] =====", reflection.level.value)
+        logger.info("触发原因: %s", reflection.root_cause)
         advice = self._llm.chat(
             [{"role": "user", "content": prompt}],
             role="advisor",
@@ -86,7 +87,7 @@ class AdvisorAgent:
                 "root_cause": reflection.root_cause,
                 "advice": advice[:500],
             })
-            logger.info("顾问建议:\n%s", advice[:500])
+            logger.info("顾问建议:\n%s", advice[:800])
         else:
             advice = self._rule_based_advice(reflection)
             logger.info("顾问LLM无响应，使用规则建议")

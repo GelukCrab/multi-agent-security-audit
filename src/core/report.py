@@ -70,6 +70,36 @@ class ReportGenerator:
         logger.info("报告已保存: %s", filepath)
         return report
 
+    def generate_from_findings(self, target: str, findings: list[dict]) -> dict:
+        """从PentestAgent的findings生成报告"""
+        report = {
+            "target": target,
+            "scan_time": datetime.now().isoformat(),
+            "summary": {
+                "total_findings": len(findings),
+                "critical": sum(1 for f in findings if f.get("severity") == "严重"),
+                "high": sum(1 for f in findings if f.get("severity") == "高"),
+                "medium": sum(1 for f in findings if f.get("severity") == "中"),
+                "low": sum(1 for f in findings if f.get("severity") == "低"),
+            },
+            "vulnerabilities": findings,
+        }
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"audit_{timestamp}.{self.output_format}"
+        filepath = os.path.join(self.output_dir, filename)
+
+        if self.output_format == "json":
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+        elif self.output_format == "markdown":
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(self._to_markdown(report))
+
+        logger.info("报告已保存: %s", filepath)
+        return report
+
     def _to_markdown(self, report: dict) -> str:
         lines = [
             f"# 安全审计报告",

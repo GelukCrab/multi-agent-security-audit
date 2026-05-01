@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 reports/
+logs/
+memory/
 .env
 *.egg-info/
 dist/

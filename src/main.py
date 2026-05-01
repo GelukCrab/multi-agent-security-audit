@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import warnings
+from datetime import datetime
 
 import yaml
 
@@ -15,11 +17,36 @@ from src.utils.display import print_banner, print_endpoints_table, print_vulns_t
 
 warnings.filterwarnings("ignore", message=".*Unverified HTTPS.*")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+
+def setup_logging(verbose: bool, log_dir: str = "logs") -> str:
+    """配置日志：控制台 + 文件双输出"""
+    os.makedirs(log_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"audit_{timestamp}.log")
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(
+        "%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+    console_handler.setFormatter(fmt)
+
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+
+    return log_file
 
 
 def load_config(config_path: str, target: str | None = None, proxy: str | None = None) -> dict:
@@ -41,10 +68,12 @@ def main() -> None:
     parser.add_argument("--output", "-o", default="./reports", help="报告输出目录")
     parser.add_argument("--verbose", "-v", action="store_true", help="详细日志")
     parser.add_argument("--no-ai", action="store_true", help="不使用AI模型，纯规则引擎模式")
+    parser.add_argument("--log-dir", default="./logs", help="日志输出目录")
     args = parser.parse_args()
 
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    log_file = setup_logging(args.verbose, args.log_dir)
+    logger = logging.getLogger("main")
+    logger.info("日志文件: %s", log_file)
 
     config = load_config(args.config, target=args.target, proxy=args.proxy)
     config["report"]["format"] = args.format
@@ -52,20 +81,22 @@ def main() -> None:
     config["use_ai"] = not args.no_ai
 
     print_banner()
+
+    if args.no_ai:
+        console.print("[red]当前架构需要AI模型驱动，--no-ai模式暂不支持[/red]")
+        return
+
     orchestrator = Orchestrator(config)
     report = asyncio.run(orchestrator.run())
 
     console.print()
     print_vulns_table(report.get("vulnerabilities", []))
     console.print()
-    print_endpoints_table(report.get("endpoints", []))
-    console.print()
 
     summary = report.get("summary", {})
-    console.print(f"[bold]端点总数:[/bold] {summary.get('total_endpoints', 0)}")
-    console.print(f"[bold]已测试:[/bold] {summary.get('tested', 0)}")
-    console.print(f"[bold]发现漏洞:[/bold] [red]{summary.get('vulnerable', 0)}[/red]")
-    console.print(f"[bold]覆盖率:[/bold] {summary.get('coverage', '0%')}")
+    console.print(f"[bold]发现漏洞:[/bold] [red]{summary.get('total_findings', 0)}[/red]")
+    console.print(f"  严重: {summary.get('critical', 0)} | 高: {summary.get('high', 0)} | 中: {summary.get('medium', 0)} | 低: {summary.get('low', 0)}")
+    console.print(f"[dim]日志文件: {log_file}[/dim]")
     console.print()
 
 

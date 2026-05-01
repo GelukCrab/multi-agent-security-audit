@@ -12,7 +12,7 @@ llm:
   # API地址 (也可通过 LLM_BASE_URL 环境变量设置)
   base_url: "https://api.deepseek.com"
   # API密钥 (建议通过环境变量设置，不要写在配置文件里)
-  api_key: ""
+  api_key: "sk-eeff1c1eac45491aa1b42fbbbf466791"
   # 主攻手模型 (也可通过 LLM_MAIN_MODEL 环境变量设置)
   main_model: "deepseek-v4-pro"
   max_tokens: 4096
@@ -32,6 +32,10 @@ llm:
 reflector_threshold: 5
 
 agents:
+  pentest:
+    max_rounds: 30
+    stuck_threshold: 5
+
   recon:
     js_crawl_depth: 3
     parse_swagger: true

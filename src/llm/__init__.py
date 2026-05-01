@@ -67,6 +67,9 @@ class LLMProvider:
             client = self._main_client
             config = self._main_config
 
+        last_msg = messages[-1]["content"][:200] if messages else ""
+        logger.debug("[%s] 调用 %s | prompt: %s...", role, config.model, last_msg)
+
         try:
             response = client.chat.completions.create(
                 model=config.model,
@@ -74,7 +77,13 @@ class LLMProvider:
                 temperature=temperature or config.temperature,
                 max_tokens=max_tokens or config.max_tokens,
             )
-            return response.choices[0].message.content or ""
+            result = response.choices[0].message.content or ""
+            usage = response.usage
+            if usage:
+                logger.debug("[%s] tokens: prompt=%d completion=%d total=%d",
+                            role, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
+            logger.debug("[%s] 响应: %s...", role, result[:300])
+            return result
         except Exception as e:
             logger.error("[%s] LLM调用失败: %s", role, e)
             return ""
@@ -100,6 +109,61 @@ class LLMProvider:
                     pass
             logger.warning("JSON解析失败，原始响应: %s...", text[:200])
             return None
+
+    def chat_with_tools(
+        self, messages: list[dict], tools: list[dict],
+        role: str = "main", temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict:
+        """发送带function calling的对话请求，返回完整assistant消息"""
+        if role == "advisor" and self._advisor_client and self._advisor_config:
+            client = self._advisor_client
+            config = self._advisor_config
+        else:
+            client = self._main_client
+            config = self._main_config
+
+        last_msg = messages[-1].get("content", "")[:100] if messages else ""
+        logger.debug("[%s] tool_call请求 | 工具数=%d | last_msg: %s...",
+                    role, len(tools), last_msg)
+
+        try:
+            response = client.chat.completions.create(
+                model=config.model,
+                messages=messages,
+                tools=tools if tools else None,
+                tool_choice="auto" if tools else None,
+                temperature=temperature or config.temperature,
+                max_tokens=max_tokens or config.max_tokens,
+            )
+            msg = response.choices[0].message
+            usage = response.usage
+            if usage:
+                logger.debug("[%s] tokens: prompt=%d completion=%d total=%d",
+                            role, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
+
+            result = {"role": "assistant", "content": msg.content or ""}
+            if msg.tool_calls:
+                result["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in msg.tool_calls
+                ]
+                logger.debug("[%s] 返回 %d 个tool_calls: %s",
+                            role, len(msg.tool_calls),
+                            [tc.function.name for tc in msg.tool_calls])
+            if msg.content:
+                logger.debug("[%s] 文本: %s...", role, msg.content[:200])
+            return result
+        except Exception as e:
+            logger.error("[%s] chat_with_tools失败: %s", role, e)
+            return {"role": "assistant", "content": f"LLM调用失败: {e}"}
 
     @property
     def has_advisor(self) -> bool:
