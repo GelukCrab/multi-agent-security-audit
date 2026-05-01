@@ -8,7 +8,7 @@ from src.utils.http_client import HttpClient
 
 logger = logging.getLogger(__name__)
 
-RESPONSE_TRUNCATE = 3000
+RESPONSE_TRUNCATE = 5000
 
 
 def create_http_tools(client: HttpClient) -> dict:
@@ -32,10 +32,12 @@ def create_http_tools(client: HttpClient) -> dict:
             import json
             try:
                 json_data = json.loads(body)
-            except Exception:
-                data = {"raw": body}
+            except json.JSONDecodeError:
+                data = body
+        elif body and content_type and "urlencoded" in content_type:
+            data = body
         elif body:
-            data = {"raw": body}
+            data = body
 
         start = time.time()
         try:
@@ -52,15 +54,17 @@ def create_http_tools(client: HttpClient) -> dict:
                 "body": body_text,
                 "elapsed_seconds": round(elapsed, 2),
                 "body_length": len(resp.text),
+                "truncated": len(resp.text) > RESPONSE_TRUNCATE,
             }
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("HTTP请求失败 %s %s: %s", method, url, e)
+            return {"error": f"{type(e).__name__}: {e}"}
 
     async def fetch_page(url: str) -> dict:
         """获取页面HTML内容"""
         try:
             resp = await client.request("GET", url)
-            html = resp.text[:5000]
+            html = resp.text[:RESPONSE_TRUNCATE]
             title = ""
             import re
             m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
@@ -73,7 +77,8 @@ def create_http_tools(client: HttpClient) -> dict:
                 "content_length": len(resp.text),
             }
         except Exception as e:
-            return {"error": str(e)}
+            logger.error("fetch_page失败 %s: %s", url, e)
+            return {"error": f"{type(e).__name__}: {e}"}
 
     return {
         "http_request": http_request,

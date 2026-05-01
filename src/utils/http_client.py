@@ -19,6 +19,7 @@ class HttpClient:
             transport=transport,
             timeout=httpx.Timeout(timeout),
             follow_redirects=True,
+            max_redirects=10,
             verify=False,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         )
@@ -30,7 +31,7 @@ class HttpClient:
         *,
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
-        data: dict[str, Any] | None = None,
+        data: Any = None,
         headers: dict[str, str] | None = None,
         cookies: dict[str, str] | None = None,
     ) -> httpx.Response:

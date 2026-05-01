@@ -57,7 +57,8 @@ class ReportGenerator:
 
         os.makedirs(self.output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"audit_{timestamp}.{self.output_format}"
+        ext = "md" if self.output_format == "markdown" else self.output_format
+        filename = f"audit_{timestamp}.{ext}"
         filepath = os.path.join(self.output_dir, filename)
 
         if self.output_format == "json":
@@ -87,7 +88,8 @@ class ReportGenerator:
 
         os.makedirs(self.output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"audit_{timestamp}.{self.output_format}"
+        ext = "md" if self.output_format == "markdown" else self.output_format
+        filename = f"audit_{timestamp}.{ext}"
         filepath = os.path.join(self.output_dir, filename)
 
         if self.output_format == "json":
