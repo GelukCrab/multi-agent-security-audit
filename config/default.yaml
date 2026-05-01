@@ -1,0 +1,50 @@
+# 默认配置
+
+target:
+  url: ""
+  proxy: ""
+  timeout: 15
+  concurrency: 5
+
+# LLM配置 (支持DeepSeek/OpenAI/任何兼容OpenAI协议的服务)
+# API key也可通过环境变量设置: DEEPSEEK_API_KEY 或 OPENAI_API_KEY
+llm:
+  # API地址 (也可通过 LLM_BASE_URL 环境变量设置)
+  base_url: "https://api.deepseek.com"
+  # API密钥 (建议通过环境变量设置，不要写在配置文件里)
+  api_key: ""
+  # 主攻手模型 (也可通过 LLM_MAIN_MODEL 环境变量设置)
+  main_model: "deepseek-v4-pro"
+  max_tokens: 4096
+  temperature: 0.7
+
+  # 顾问配置 (不常驻，只在主攻手卡住时触发)
+  advisor:
+    enabled: true
+    # 顾问可以用不同的模型/地址，留空则复用主攻手的
+    base_url: ""
+    api_key: ""
+    model: "deepseek-v4-flash"
+    max_tokens: 2048
+    temperature: 0.5
+
+# 反思器配置
+reflector_threshold: 5
+
+agents:
+  recon:
+    js_crawl_depth: 3
+    parse_swagger: true
+    wordlist: ""
+
+  analyzer:
+    risk_threshold: 0.3
+
+  exploit:
+    max_cases_per_endpoint: 20
+    time_based_detection: true
+    time_threshold: 3
+
+report:
+  format: "json"
+  output_dir: "./reports"
