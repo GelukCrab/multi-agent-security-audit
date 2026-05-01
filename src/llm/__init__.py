@@ -3,6 +3,7 @@ LLM Provider — 统一的大模型调用层
 =================================
 支持OpenAI兼容协议(DeepSeek/GPT/通义等都走这个)。
 角色分离: 主攻手(main) + 顾问(advisor)
+两阶段调用: 思考模式(深度推理) + 执行模式(Function Calling)
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ class LLMConfig:
 
 
 class LLMProvider:
-    """统一LLM调用层，支持主攻手和顾问两个角色"""
+    """统一LLM调用层，支持思考模式和执行模式"""
 
     def __init__(self, main_config: LLMConfig, advisor_config: LLMConfig | None = None) -> None:
         if not HAS_OPENAI:
@@ -56,99 +57,62 @@ class LLMProvider:
         if advisor_config:
             logger.info("顾问模型: %s (%s)", advisor_config.model, advisor_config.base_url)
 
-    def chat(self, messages: list[dict], role: str = "main",
-             temperature: float | None = None,
-             max_tokens: int | None = None) -> str:
-        """发送对话请求，role='main'用主攻手，role='advisor'用顾问"""
+    def _get_client_config(self, role: str) -> tuple:
         if role == "advisor" and self._advisor_client and self._advisor_config:
-            client = self._advisor_client
-            config = self._advisor_config
-        else:
-            client = self._main_client
-            config = self._main_config
+            return self._advisor_client, self._advisor_config
+        return self._main_client, self._main_config
 
-        last_msg = messages[-1]["content"][:200] if messages else ""
-        logger.debug("[%s] 调用 %s | prompt: %s...", role, config.model, last_msg)
+    def think(self, messages: list[dict], role: str = "main") -> tuple[str, str]:
+        """思考模式：深度推理，返回(reasoning, content)"""
+        client, config = self._get_client_config(role)
+        logger.debug("[%s][思考] 调用 %s", role, config.model)
 
         try:
             response = client.chat.completions.create(
                 model=config.model,
                 messages=messages,
-                temperature=temperature or config.temperature,
-                max_tokens=max_tokens or config.max_tokens,
+                max_tokens=config.max_tokens,
             )
-            result = response.choices[0].message.content or ""
+            msg = response.choices[0].message
             usage = response.usage
             if usage:
-                logger.debug("[%s] tokens: prompt=%d completion=%d total=%d",
+                logger.debug("[%s][思考] tokens: prompt=%d completion=%d total=%d",
                             role, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
-            logger.debug("[%s] 响应: %s...", role, result[:300])
-            return result
+
+            reasoning = getattr(msg, "reasoning_content", None) or ""
+            content = msg.content or ""
+
+            if reasoning:
+                logger.debug("[%s][思考] 推理: %s...", role, reasoning[:300])
+            logger.debug("[%s][思考] 结论: %s...", role, content[:300])
+            return reasoning, content
         except Exception as e:
-            logger.error("[%s] LLM调用失败: %s", role, e)
-            return ""
+            logger.error("[%s][思考] 失败: %s", role, e)
+            return "", ""
 
-    def chat_json(self, messages: list[dict], role: str = "main") -> list | dict | None:
-        """发送对话请求并解析JSON响应"""
-        text = self.chat(messages, role=role, temperature=0.3)
-        if not text:
-            return None
-        text = text.strip()
-        if text.startswith("```"):
-            lines = text.split("\n")
-            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r'[\[\{].*[\]\}]', text, re.DOTALL)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
-            logger.warning("JSON解析失败，原始响应: %s...", text[:200])
-            return None
-
-    def chat_with_tools(
-        self, messages: list[dict], tools: list[dict],
-        role: str = "main", temperature: float | None = None,
-        max_tokens: int | None = None,
-    ) -> dict:
-        """发送带function calling的对话请求，返回完整assistant消息"""
-        if role == "advisor" and self._advisor_client and self._advisor_config:
-            client = self._advisor_client
-            config = self._advisor_config
-        else:
-            client = self._main_client
-            config = self._main_config
-
-        last_msg = messages[-1].get("content", "")[:100] if messages else ""
-        logger.debug("[%s] tool_call请求 | 工具数=%d | last_msg: %s...",
-                    role, len(tools), last_msg)
+    def execute(self, messages: list[dict], tools: list[dict],
+                role: str = "main") -> dict:
+        """执行模式：关闭思考，启用Function Calling"""
+        client, config = self._get_client_config(role)
+        logger.debug("[%s][执行] 调用 %s | 工具数=%d", role, config.model, len(tools))
 
         try:
+            extra_body = {"thinking": {"type": "disabled"}}
             response = client.chat.completions.create(
                 model=config.model,
                 messages=messages,
                 tools=tools if tools else None,
                 tool_choice="auto" if tools else None,
-                temperature=temperature or config.temperature,
-                max_tokens=max_tokens or config.max_tokens,
+                max_tokens=config.max_tokens,
+                extra_body=extra_body,
             )
             msg = response.choices[0].message
             usage = response.usage
             if usage:
-                logger.debug("[%s] tokens: prompt=%d completion=%d total=%d",
+                logger.debug("[%s][执行] tokens: prompt=%d completion=%d total=%d",
                             role, usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
 
             result = {"role": "assistant", "content": msg.content or ""}
-
-            # DeepSeek推理模型返回reasoning_content，仅用于日志，不能传回API
-            reasoning = getattr(msg, "reasoning_content", None)
-            if reasoning:
-                logger.debug("[%s] 推理内容: %s...", role, reasoning[:200])
-
             if msg.tool_calls:
                 result["tool_calls"] = [
                     {
@@ -161,15 +125,31 @@ class LLMProvider:
                     }
                     for tc in msg.tool_calls
                 ]
-                logger.debug("[%s] 返回 %d 个tool_calls: %s",
-                            role, len(msg.tool_calls),
-                            [tc.function.name for tc in msg.tool_calls])
-            if msg.content:
-                logger.debug("[%s] 文本: %s...", role, msg.content[:200])
+                logger.debug("[%s][执行] tool_calls: %s",
+                            role, [tc.function.name for tc in msg.tool_calls])
             return result
         except Exception as e:
-            logger.error("[%s] chat_with_tools失败: %s", role, e)
-            return {"role": "assistant", "content": f"LLM调用失败: {e}"}
+            logger.error("[%s][执行] 失败: %s", role, e)
+            return {"role": "assistant", "content": f"执行失败: {e}"}
+
+    def chat(self, messages: list[dict], role: str = "main",
+             temperature: float | None = None,
+             max_tokens: int | None = None) -> str:
+        """普通对话（顾问用，关闭思考）"""
+        client, config = self._get_client_config(role)
+        try:
+            extra_body = {"thinking": {"type": "disabled"}}
+            response = client.chat.completions.create(
+                model=config.model,
+                messages=messages,
+                temperature=temperature or config.temperature,
+                max_tokens=max_tokens or config.max_tokens,
+                extra_body=extra_body,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            logger.error("[%s] chat失败: %s", role, e)
+            return ""
 
     @property
     def has_advisor(self) -> bool:
@@ -190,7 +170,7 @@ def create_provider_from_config(config: dict) -> LLMProvider | None:
     main_config = LLMConfig(
         base_url=base_url,
         api_key=api_key,
-        model=llm_cfg.get("main_model", "") or os.environ.get("LLM_MAIN_MODEL", "deepseek-reasoner"),
+        model=llm_cfg.get("main_model", "") or os.environ.get("LLM_MAIN_MODEL", "deepseek-v4-pro"),
         max_tokens=llm_cfg.get("max_tokens", 4096),
         temperature=llm_cfg.get("temperature", 0.7),
     )
@@ -201,7 +181,7 @@ def create_provider_from_config(config: dict) -> LLMProvider | None:
         advisor_config = LLMConfig(
             base_url=advisor_cfg.get("base_url", "") or base_url,
             api_key=advisor_cfg.get("api_key", "") or api_key,
-            model=advisor_cfg.get("model", "") or os.environ.get("LLM_ADVISOR_MODEL", "deepseek-chat"),
+            model=advisor_cfg.get("model", "") or os.environ.get("LLM_ADVISOR_MODEL", "deepseek-v4-flash"),
             max_tokens=advisor_cfg.get("max_tokens", 2048),
             temperature=advisor_cfg.get("temperature", 0.5),
         )
