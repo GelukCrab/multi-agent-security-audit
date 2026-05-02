@@ -27,6 +27,8 @@ class SkillMeta:
     description: str
     tags: list[str] = field(default_factory=list)
     priority: int = 50
+    phase: str = ""       # recon / exploit / post-exploit
+    chain: str = ""       # 技能链: recon -> exploit -> post-exploit
     author: str = ""
 
 
@@ -74,6 +76,8 @@ def _parse_skill_md(path: Path) -> Skill | None:
         description=meta_dict.get("description", ""),
         tags=tags,
         priority=int(meta_dict.get("priority", "50")),
+        phase=meta_dict.get("phase", ""),
+        chain=meta_dict.get("chain", ""),
         author=meta_dict.get("author", ""),
     )
 
@@ -225,6 +229,21 @@ class SkillRegistry:
 
     def all(self) -> list[Skill]:
         return sorted(self._skills.values(), key=lambda s: s.meta.priority, reverse=True)
+
+    def get_by_phase(self, phase: str) -> list[Skill]:
+        """按阶段获取技能: recon / exploit / post-exploit"""
+        return sorted(
+            [s for s in self._skills.values() if s.meta.phase == phase],
+            key=lambda s: s.meta.priority, reverse=True,
+        )
+
+    def get_chain(self, start_skill: str) -> list[Skill]:
+        """获取技能链：根据chain字段解析依赖顺序"""
+        skill = self._skills.get(start_skill)
+        if not skill or not skill.meta.chain:
+            return [skill] if skill else []
+        chain_names = [n.strip() for n in skill.meta.chain.split("->")]
+        return [self._skills[n] for n in chain_names if n in self._skills]
 
     def match_by_tags(self, keywords: list[str]) -> list[Skill]:
         """根据关键词匹配相关技能"""
