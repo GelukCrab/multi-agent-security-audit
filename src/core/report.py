@@ -104,7 +104,7 @@ class ReportGenerator:
 
     def _to_markdown(self, report: dict) -> str:
         lines = [
-            f"# 安全审计报告",
+            f"# 渗透测试报告",
             f"",
             f"**目标**: {report['target']}",
             f"**时间**: {report['scan_time']}",

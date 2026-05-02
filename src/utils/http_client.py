@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class HttpClient:
-    """封装httpx，支持SOCKS5/HTTP代理和统一超时"""
+    """封装httpx，支持SOCKS5/HTTP代理、Cookie会话、文件上传"""
 
     def __init__(self, proxy: str = "", timeout: float = 15) -> None:
         transport = httpx.AsyncHTTPTransport(proxy=proxy) if proxy else None
@@ -32,14 +32,16 @@ class HttpClient:
         params: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         data: Any = None,
+        files: dict | None = None,
         headers: dict[str, str] | None = None,
         cookies: dict[str, str] | None = None,
     ) -> httpx.Response:
         logger.debug("%s %s", method, url)
         return await self._client.request(
             method, url, params=params, json=json, data=data,
-            headers=headers, cookies=cookies,
+            files=files, headers=headers, cookies=cookies,
         )
 
     async def close(self) -> None:
         await self._client.aclose()
+

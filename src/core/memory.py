@@ -2,11 +2,11 @@
 记忆系统 — 运行记忆 + 经验持久化
 ================================
 借鉴LingXi的三层记忆架构:
-  1. 运行记忆(热路径) — 当前审计的实时状态
-  2. 经验存储(持久化) — 历史审计的成功/失败经验
+  1. 运行记忆(热路径) — 当前任务的实时状态
+  2. 经验存储(持久化) — 历史任务的成功/失败经验
   3. 知识检索 — 外部知识库(预留接口)
 
-按目标域名做经验持久化，相同目标再次审计时自动加载历史经验。
+按目标域名做经验持久化，相同目标再次测试时自动加载历史经验。
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ MEMORY_DIR = Path(__file__).resolve().parent.parent.parent / "memory"
 
 @dataclass
 class AuditMemory:
-    """单次审计的运行记忆"""
+    """单次任务的运行记忆"""
     target: str
     start_time: str = ""
     frameworks: list[str] = field(default_factory=list)
@@ -40,7 +40,7 @@ class AuditMemory:
 
 @dataclass
 class Experience:
-    """持久化的审计经验"""
+    """持久化的任务经验"""
     target_domain: str
     last_audit: str
     total_audits: int = 0
@@ -64,7 +64,7 @@ class MemoryStore:
             target=target,
             start_time=datetime.now().isoformat(),
         )
-        logger.info("创建审计记忆: %s", target)
+        logger.info("创建任务记忆: %s", target)
         return self._current
 
     @property
@@ -114,13 +114,13 @@ class MemoryStore:
                 exp.verified_chains.append(chain)
         with open(exp_path, "w", encoding="utf-8") as f:
             json.dump(asdict(exp), f, ensure_ascii=False, indent=2)
-        logger.info("经验已保存: %s (累计%d次审计)", exp_path, exp.total_audits)
+        logger.info("经验已保存: %s (累计%d次测试)", exp_path, exp.total_audits)
 
     def load_experience(self, target: str) -> Experience | None:
         domain = self._extract_domain(target)
         exp = self._load_experience(domain)
         if exp.total_audits > 0:
-            logger.info("加载历史经验: %s (%d次审计, %d个已知漏洞)",
+            logger.info("加载历史经验: %s (%d次测试, %d个已知漏洞)",
                         domain, exp.total_audits, len(exp.known_vulns))
             return exp
         return None

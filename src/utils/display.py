@@ -13,7 +13,7 @@ console = Console()
 def print_banner() -> None:
     banner = Text()
     banner.append("Multi-Agent Security Audit Framework\n", style="bold cyan")
-    banner.append("多Agent协作安全审计框架 v0.1.0", style="dim")
+    banner.append("LLM自主渗透测试框架 v0.1.0", style="dim")
     console.print(Panel(banner, border_style="cyan"))
 
 

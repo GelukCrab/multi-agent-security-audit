@@ -77,7 +77,7 @@ def load_config(config_path: str, target: str | None = None, proxy: str | None =
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="多Agent协作安全审计框架")
+    parser = argparse.ArgumentParser(description="LLM自主渗透测试框架")
     parser.add_argument("--target", "-t", required=True, help="目标URL")
     parser.add_argument("--config", "-c", default="config/default.yaml", help="配置文件路径")
     parser.add_argument("--proxy", "-p", default="", help="代理地址")
