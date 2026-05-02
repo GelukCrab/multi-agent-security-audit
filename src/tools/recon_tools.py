@@ -64,7 +64,7 @@ def port_scan(host: str, ports: str = "top100", args: str = "") -> dict:
         "all":     "-p-",
     }.get(ports, f"-p {ports}")
 
-    scan_args = f"-sV -T4 {port_arg} {args}"
+    scan_args = f"-sV -T4 -Pn {port_arg} {args}"  # -Pn 跳过ping，防止防火墙屏蔽ICMP导致误判
     logger.info("nmap 扫描: %s %s", host, scan_args)
 
     try:
