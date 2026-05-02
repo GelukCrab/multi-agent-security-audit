@@ -78,10 +78,10 @@ class ReportGenerator:
             "scan_time": datetime.now().isoformat(),
             "summary": {
                 "total_findings": len(findings),
-                "critical": sum(1 for f in findings if f.get("severity") == "严重"),
-                "high": sum(1 for f in findings if f.get("severity") == "高"),
-                "medium": sum(1 for f in findings if f.get("severity") == "中"),
-                "low": sum(1 for f in findings if f.get("severity") == "低"),
+                "critical": sum(1 for f in findings if f.get("severity", "").lower() in ("严重", "critical")),
+                "high": sum(1 for f in findings if f.get("severity", "").lower() in ("高", "high")),
+                "medium": sum(1 for f in findings if f.get("severity", "").lower() in ("中", "medium")),
+                "low": sum(1 for f in findings if f.get("severity", "").lower() in ("低", "low")),
             },
             "vulnerabilities": findings,
         }
@@ -121,12 +121,34 @@ class ReportGenerator:
         lines.append("")
         for v in report["vulnerabilities"]:
             lines.append(f"### {v.get('vuln_type', 'Unknown')} — {v.get('endpoint', '')}")
-            lines.append(f"- 严重程度: {v.get('severity', '')}")
-            lines.append(f"- 参数: {v.get('parameter', '')}")
-            lines.append(f"- 描述: {v.get('description', '')}")
-            lines.append(f"- PoC: `{v.get('poc', '')}`")
+            lines.append("")
+            lines.append(f"- **严重程度**: {v.get('severity', '')}")
+            lines.append(f"- **方法**: {v.get('method', '')}")
+            lines.append(f"- **参数**: `{v.get('parameter', '')}`")
+            lines.append(f"- **描述**: {v.get('description', '')}")
+            lines.append("")
+
+            if v.get("raw_request"):
+                lines.append("**复现请求包**:")
+                lines.append("```http")
+                # 将\r\n转为\n防止markdown渲染成双换行
+                raw = v["raw_request"].replace("\r\n", "\n").replace("\r", "\n")
+                lines.append(raw.rstrip())
+                lines.append("```")
+                lines.append("")
+
+            if v.get("poc"):
+                lines.append(f"**PoC说明**: {v['poc']}")
+                lines.append("")
+
             if v.get("evidence"):
-                lines.append(f"- 证据: `{v['evidence'][:200]}`")
+                lines.append("**证据**:")
+                lines.append("```")
+                lines.append(v["evidence"][:500])
+                lines.append("```")
+                lines.append("")
+
+            lines.append("---")
             lines.append("")
 
         if "endpoints" in report:

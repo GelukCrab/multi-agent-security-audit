@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 import logging
 from urllib.parse import unquote
@@ -10,6 +11,30 @@ from src.utils.http_client import HttpClient
 logger = logging.getLogger(__name__)
 
 RESPONSE_TRUNCATE = 5000
+
+# httpx不支持URL中的非打印ASCII字符，保留这些的编码形式
+_UNSAFE_PERCENT = re.compile(r'%(?:0[0-9a-fA-F]|1[0-9a-fA-F]|7[fF])', re.IGNORECASE)
+
+
+def _safe_unquote_url(url: str) -> str:
+    """选择性URL解码：解码安全字符，保留非打印字符的%编码"""
+    # 先把不安全的%编码临时替换
+    placeholders = {}
+    counter = [0]
+
+    def _replace(m):
+        key = f"__PH{counter[0]}__"
+        placeholders[key] = m.group(0)
+        counter[0] += 1
+        return key
+
+    safe_url = _UNSAFE_PERCENT.sub(_replace, url)
+    # 解码安全字符
+    safe_url = unquote(safe_url)
+    # 还原不安全的编码
+    for key, val in placeholders.items():
+        safe_url = safe_url.replace(key, val)
+    return safe_url
 
 
 def create_http_tools(client: HttpClient) -> dict:
@@ -23,10 +48,11 @@ def create_http_tools(client: HttpClient) -> dict:
         content_type: str | None = None,
     ) -> dict:
         """发送HTTP请求"""
-        # 模型可能输出已编码的URL，先解码防止双重编码
-        if "%2" in url or "%3" in url or "%20" in url:
-            url = unquote(url)
-            logger.debug("URL解码后: %s", url[:200])
+        # 模型可能输出已编码的URL，选择性解码防止双重编码
+        # 但保留非打印字符的编码形式（%0a %09 %0b %0c %0d等），httpx不支持这些
+        if "%" in url:
+            url = _safe_unquote_url(url)
+            logger.debug("URL处理后: %s", url[:200])
 
         req_headers = dict(headers or {})
         if content_type:
@@ -36,8 +62,8 @@ def create_http_tools(client: HttpClient) -> dict:
         data = None
         if body:
             # body也可能被编码
-            if "%2" in body or "%3" in body or "%20" in body:
-                body = unquote(body)
+            if "%" in body:
+                body = _safe_unquote_url(body)
                 logger.debug("Body解码后: %s", body[:200])
             if content_type and "json" in content_type:
                 import json
