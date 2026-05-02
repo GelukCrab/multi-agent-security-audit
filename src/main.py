@@ -85,6 +85,7 @@ def main() -> None:
     parser.add_argument("--output", "-o", default="./reports", help="报告输出目录")
     parser.add_argument("--verbose", "-v", action="store_true", help="详细日志")
     parser.add_argument("--no-ai", action="store_true", help="不使用AI模型，纯规则引擎模式")
+    parser.add_argument("--ctf", action="store_true", help="CTF模式：以找flag为目标")
     parser.add_argument("--log-dir", default="./logs", help="日志输出目录")
     args = parser.parse_args()
 
@@ -97,6 +98,7 @@ def main() -> None:
         config["report"]["format"] = args.format
     config["report"]["output_dir"] = args.output
     config["use_ai"] = not args.no_ai
+    config["ctf_mode"] = args.ctf
 
     print_banner()
 
