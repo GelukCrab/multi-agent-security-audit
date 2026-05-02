@@ -18,13 +18,34 @@
 - 不要为每个小修复单独打 tag，多个修复合并为一个版本
 
 ### 提交信息格式
-- 合并多个修复时，用列表说明：
+- tag标题简洁，但commit message必须详细列出每一项改动
+- 每个修复/改进单独一行，说清楚：改了什么文件、修了什么问题、为什么改
+- 格式：
 ```
-修复: 批量修复若干问题
+v1.x.x 简要标题
 
-- 修复xxx问题
-- 修复yyy问题  
-- 改进zzz
+修复:
+- [文件名] 具体修了什么问题（触发条件/现象）
+- [文件名] 具体修了什么问题
+
+增强:
+- [文件名] 新增了什么功能/改进了什么
+```
+- 示例：
+```
+v1.4.0 修复URL编码/报告格式/漏洞记录等问题
+
+修复:
+- [http_tools.py] URL中%0a/%09等非打印字符保留编码，修复httpx报Illegal header错误
+- [pentest_tools.py] record_finding的request_headers参数支持dict类型，修复'dict has no rstrip'报错
+- [report.py] severity统计同时匹配中英文(严重/critical)，修复发现漏洞但概览显示0
+- [report.py] 数据包\r\n转\n，修复markdown渲染成双换行
+- [pentest_agent.py] 思考阶段空输出重试2次而非直接退出，修复Less-16漏洞发现但未记录
+- [pentest_agent.py] 模型试图结束但未记录漏洞时强制提醒补录
+
+增强:
+- [pentest_tools.py] record_finding新增request_url/request_headers/request_body，报告输出完整HTTP复现数据包
+- [pentest_agent.py] system prompt强制中文输出，severity改为中文(严重/高/中/低)
 ```
 
 ### 分支策略
